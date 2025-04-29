@@ -27,6 +27,8 @@ public class Responder
     private ArrayList<String> defaultResponses;
     // The name of the file containing the default responses.
     private static final String FILE_OF_DEFAULT_RESPONSES = "default.txt";
+    // The name of the file containing the key response pairs.
+    private static final String FILE_OF_RESPONSES = "responses.txt";
     private Random randomGenerator;
 
     /**
@@ -36,15 +38,15 @@ public class Responder
     {
         responseMap = new HashMap<>();
         defaultResponses = new ArrayList<>();
-        fillResponseMap();
+        randomGenerator = new Random();
         try {
+            fillResponseMap();
             fillDefaultResponses();
         } catch (IOException e) {
-            System.err.println("Error loading default responses: " + e.getMessage());
+            System.err.println("Error loading responses: " + e.getMessage());
             // Make sure we have at least one response.
             defaultResponses.add("Could you elaborate on that?");
         }
-        randomGenerator = new Random();
     }
 
     /**
@@ -70,57 +72,54 @@ public class Responder
     }
 
     /**
-     * Enter all the known keywords and their associated responses
-     * into our response map.
+     * Read key response pairs from responses.txt and enter them into our response map.
+     * Comma-separated keys on the first line, followed by response lines,
+     * with a blank line marking the end of a key-response pair.
+     * Throws IOException if two or more consecutive blank lines are encountered.
      */
-    private void fillResponseMap()
+    private void fillResponseMap() throws IOException
     {
-        responseMap.put("crash", 
-                        "Well, it never crashes on our system. It must have something\n" +
-                        "to do with your system. Tell me more about your configuration.");
-        responseMap.put("crashes", 
-                        "Well, it never crashes on our system. It must have something\n" +
-                        "to do with your system. Tell me more about your configuration.");
-        responseMap.put("slow", 
-                        "I think this has to do with your hardware. Upgrading your processor\n" +
-                        "should solve all performance problems. Have you got a problem with\n" +
-                        "our software?");
-        responseMap.put("performance", 
-                        "Performance was quite adequate in all our tests. Are you running\n" +
-                        "any other processes in the background?");
-        responseMap.put("bug", 
-                        "Well, you know, all software has some bugs. But our software engineers\n" +
-                        "are working very hard to fix them. Can you describe the problem a bit\n" +
-                        "further?");
-        responseMap.put("buggy", 
-                        "Well, you know, all software has some bugs. But our software engineers\n" +
-                        "are working very hard to fix them. Can you describe the problem a bit\n" +
-                        "further?");
-        responseMap.put("windows", 
-                        "This is a known bug to do with the Windows operating system. Please\n" +
-                        "report it to Microsoft. There is nothing we can do about this.");
-        responseMap.put("macintosh", 
-                        "This is a known bug to do with the Mac operating system. Please\n" +
-                        "report it to Apple. There is nothing we can do about this.");
-        responseMap.put("expensive", 
-                        "The cost of our product is quite competitive. Have you looked around\n" +
-                        "and really compared our features?");
-        responseMap.put("installation", 
-                        "The installation is really quite straight forward. We have tons of\n" +
-                        "wizards that do all the work for you. Have you read the installation\n" +
-                        "instructions?");
-        responseMap.put("memory", 
-                        "If you read the system requirements carefully, you will see that the\n" +
-                        "specified memory requirements are 1.5 giga byte. You really should\n" +
-                        "upgrade your memory. Anything else you want to know?");
-        responseMap.put("linux", 
-                        "We take Linux support very seriously. But there are some problems.\n" +
-                        "Most have to do with incompatible glibc versions. Can you be a bit\n" +
-                        "more precise?");
-        responseMap.put("bluej", 
-                        "Ahhh, BlueJ, yes. We tried to buy out those guys long ago, but\n" +
-                        "they simply won't sell... Stubborn people they are. Nothing we can\n" +
-                        "do about it, I'm afraid.");
+        try (BufferedReader reader = new BufferedReader(new FileReader(FILE_OF_RESPONSES))) {
+            StringBuilder response = new StringBuilder();
+            String[] keys = null;
+            String line;
+            int blankLineCount = 0;
+
+            while ((line = reader.readLine()) != null) {
+                if (line.trim().isEmpty()) {
+                    blankLineCount++;
+                    if (blankLineCount >= 2) {
+                        throw new IOException("Encountered two or more consecutive blank lines in " + FILE_OF_RESPONSES);
+                    }
+                    if (keys != null && response.length() > 0) {
+                        for (String key : keys) {
+                            // Trim and remove quotes from keys (e.g., performance")
+                            responseMap.put(key.trim().replace("\"", ""), response.toString());
+                        }
+                        keys = null;
+                        response.setLength(0);
+                    }
+                } else {
+                    blankLineCount = 0;
+                    if (keys == null) {
+                        keys = line.split(",");
+                    } else {
+                        if (response.length() > 0) {
+                            response.append("\n");
+                        }
+                        response.append(line);
+                    }
+                }
+            }
+            // Handle the last key response pair
+            if (keys != null && response.length() > 0) {
+                for (String key : keys) {
+                    responseMap.put(key.trim().replace("\"", ""), response.toString());
+                }
+            }
+        } catch (FileNotFoundException e) {
+            System.err.println("Unable to open " + FILE_OF_RESPONSES);
+        }
     }
 
     /**
@@ -160,8 +159,8 @@ public class Responder
         } catch (FileNotFoundException e) {
             System.err.println("Unable to open " + FILE_OF_DEFAULT_RESPONSES);
         }
-        // Make sure we have at least one response.
-        if(defaultResponses.size() == 0) {
+        // Ensure at least one default response
+        if (defaultResponses.size() == 0) {
             defaultResponses.add("Could you elaborate on that?");
         }
     }
