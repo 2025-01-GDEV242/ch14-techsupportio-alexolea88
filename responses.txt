@@ -4,7 +4,7 @@ Well, it never crashes on our system. It must have something to do with your sys
 slow
 I think this has to do with your hardware. Upgrading your processor should solve all performance problems. Have you got a problem with our software?
         
-performance"
+performance
 Performance was quite adequate in all our tests. Are you running any other processes in the background?
         
 bug, buggy

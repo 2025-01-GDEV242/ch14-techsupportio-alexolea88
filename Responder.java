@@ -15,7 +15,9 @@ import java.util.*;
  * words is recognized, one of the default responses is randomly chosen.
  * 
  * @author David J. Barnes and Michael Kölling.
- * @version 2016.02.29
+ * @author Alejandro Olea
+ * 
+ * @version 2025.04.28
  */
 public class Responder
 {
@@ -35,7 +37,13 @@ public class Responder
         responseMap = new HashMap<>();
         defaultResponses = new ArrayList<>();
         fillResponseMap();
-        fillDefaultResponses();
+        try {
+            fillDefaultResponses();
+        } catch (IOException e) {
+            System.err.println("Error loading default responses: " + e.getMessage());
+            // Make sure we have at least one response.
+            defaultResponses.add("Could you elaborate on that?");
+        }
         randomGenerator = new Random();
     }
 
@@ -116,26 +124,41 @@ public class Responder
     }
 
     /**
-     * Build up a list of default responses from which we can pick
-     * if we don't know what else to say.
+     * Build up a list of default responses from default.txt.
+     * Multi-line responses separated by blank lines.
+     * Throws IOException if two or more consecutive blank lines are encountered.
      */
-    private void fillDefaultResponses()
+    private void fillDefaultResponses() throws IOException
     {
-        Charset charset = Charset.forName("US-ASCII");
-        Path path = Paths.get(FILE_OF_DEFAULT_RESPONSES);
-        try (BufferedReader reader = Files.newBufferedReader(path, charset)) {
-            String response = reader.readLine();
-            while(response != null) {
-                defaultResponses.add(response);
-                response = reader.readLine();
+        try (BufferedReader reader = new BufferedReader(new FileReader(FILE_OF_DEFAULT_RESPONSES))) {
+            StringBuilder response = new StringBuilder();
+            String line;
+            int blankLineCount = 0;
+
+            while ((line = reader.readLine()) != null) {
+                if (line.trim().isEmpty()) {
+                    blankLineCount++;
+                    if (blankLineCount >= 2) {
+                        throw new IOException("Encountered two or more consecutive blank lines in " + FILE_OF_DEFAULT_RESPONSES);
+                    }
+                    if (response.length() > 0) {
+                        defaultResponses.add(response.toString());
+                        response.setLength(0);
+                    }
+                } else {
+                    blankLineCount = 0;
+                    if (response.length() > 0) {
+                        response.append("\n");
+                    }
+                    response.append(line);
+                }
             }
-        }
-        catch(FileNotFoundException e) {
+            // Handle the last response
+            if (response.length() > 0) {
+                defaultResponses.add(response.toString());
+            }
+        } catch (FileNotFoundException e) {
             System.err.println("Unable to open " + FILE_OF_DEFAULT_RESPONSES);
-        }
-        catch(IOException e) {
-            System.err.println("A problem was encountered reading " +
-                               FILE_OF_DEFAULT_RESPONSES);
         }
         // Make sure we have at least one response.
         if(defaultResponses.size() == 0) {
